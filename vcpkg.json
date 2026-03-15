@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
-  "name": "modname",
+  "name": "particlewind",
   "version-string": "0.1.0.0",
   "dependencies": [
     "fast-cpp-csv-parser",
@@ -9,9 +9,7 @@
     "xbyak",
     "rapidcsv",
     "clib-util",
-    "clib-utils-qtr",
-    "directxtk",
-    "skse-mcp"
+    "directxtk"
   ],
   "overrides": [
     {
