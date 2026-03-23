@@ -1,12 +1,13 @@
 {
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
     "name": "particlewind",
-    "version-string": "0.1.0.0",
+    "version-string": "0.3.0.0",
     "dependencies": [
         "spdlog",
         "rapidcsv",
         "clib-util",
-        "directxtk"
+        "directxtk",
+        "nlohmann-json"
     ],
     "overrides": [
         {
