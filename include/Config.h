@@ -3,6 +3,7 @@
 #include "REX/REX.h"
 
 #include <unordered_map>
+#include <unordered_set>
 #include <nlohmann/json.hpp>
 #include <shared_mutex>
 
@@ -21,40 +22,51 @@ public:
 
     float GetStrength(const RE::NiParticleSystem* ps) {
         if (!ps) {
-            return defaultStrength_;
+            return 0.0f;
         }
         std::vector<std::string> hierarchy;
 
-        // Walk hierarchy (self -> root)
-        // 1️. Try to find first match in hierarchy
         const RE::NiAVObject* current = ps;
+
         while (current) {
-            if (auto name = current->name.c_str(); name && name[0] != '\0') {
-                auto it = windConfig_.find(name);
-                if (it != windConfig_.end()) {
-                    return it->second;
+            std::string name = current->name.c_str() ? current->name.c_str() : "[unnamed]";
+
+            std::shared_lock lock(mutex_);
+
+            auto it = windConfig_.find(name);
+            if (it != windConfig_.end()) {
+                if (_loggedConfigHits.insert(name).second) {
+                    logger::info("Using CONFIG strength {} for '{}'", it->second, name);
                 }
-                hierarchy.emplace_back(name);
-            } else {
-                hierarchy.emplace_back("<unnamed>");
+                return it->second;
             }
+            hierarchy.emplace_back(name);
             current = current->parent;
         }
 
-        // 2️. Not found -> register self (original particle system name)
-        const std::string& selfName = hierarchy.front();
+        std::string path;
+        for (auto& name : hierarchy)
         {
-            std::unique_lock lock(mutex_);
-            windConfig_[selfName] = defaultStrength_;
+            if (path.empty()) {
+                path = name;
+            } else {
+                path = name + ">" + path;
+            }
+
+            std::shared_lock lock(mutex_);
+
+            auto itH = windConfig_.find(path);
+            if (itH != windConfig_.end()) {
+                if (_loggedConfigHits.insert(path).second) {
+                    logger::info("Using CONFIG strength {} for hierarchy '{}'", itH->second, path);
+                }
+                return itH->second;
+            }
         }
 
-        // 3️. Log
-        logger::info("Using default strength: {} for particle hierarchy:", defaultStrength_);
-        for (auto it = hierarchy.rbegin(); it != hierarchy.rend(); ++it) {
-            size_t depth = std::distance(hierarchy.rbegin(), it);
-            std::string indent(depth * 2, ' ');
-            std::string prefix = (depth == 0) ? "" : "|-";
-            logger::info("{}{}{}", indent, prefix, *it);
+        if (_loggedHierarchies.insert(path).second) {
+            logger::info("Using default strength: {} for particle hierarchy:", defaultStrength_);
+            logger::info("{}", path);
         }
 
         return defaultStrength_;
@@ -114,5 +126,9 @@ public:
 
     mutable std::shared_mutex mutex_;
     std::unordered_map<std::string, float> windConfig_;
+
+    std::unordered_set<std::string> _loggedHierarchies;
+    std::unordered_set<std::string> _loggedConfigHits;
+
     float defaultStrength_{5.0f};
 };

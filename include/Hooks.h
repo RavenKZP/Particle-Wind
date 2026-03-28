@@ -20,7 +20,7 @@ namespace Hooks {
     struct LinkObjectHook {
         static void Hook(RE::NiParticleSystem* a_this, RE::NiStream& a_stream) {
             original(a_this, a_stream);
-
+            auto start = std::chrono::high_resolution_clock::now();
             // Respect existing
             if (HasWindModifier(a_this)) {
                 return;
@@ -34,6 +34,9 @@ namespace Hooks {
             auto wind = RE::BSWindModifier::Create("ParticleWind", strength);
             if (!wind) return;
             a_this->AddModifier(wind);
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> elapsed = end - start;
+            logger::debug("This took {} ms", elapsed.count());
         }
 
         static inline REL::Relocation<decltype(Hook)> original;
