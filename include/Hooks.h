@@ -54,10 +54,12 @@ namespace Hooks {
 
         LinkObjectHook::original = vtblNiPS.write_vfunc(0x19, LinkObjectHook::Hook);
 
-        auto& trampoline = SKSE::GetTrampoline();
-        SKSE::AllocTrampoline(14);
-        TESUpdateBsWindModifierWindVectorHook::original =
-            trampoline.write_call<5>(REL::RelocationID(13151, 13291).address() + REL::Relocate(0x8E, 0x8A),
-                                     TESUpdateBsWindModifierWindVectorHook::UpdateBsWindModifierWindVector);
+        if (Config::GetSingleton()->windDirectionFix_) {
+            auto& trampoline = SKSE::GetTrampoline();
+            SKSE::AllocTrampoline(14);
+            TESUpdateBsWindModifierWindVectorHook::original =
+                trampoline.write_call<5>(REL::RelocationID(13151, 13291).address() + REL::Relocate(0x8E, 0x8A),
+                                         TESUpdateBsWindModifierWindVectorHook::UpdateBsWindModifierWindVector);
+        }
     }
 }

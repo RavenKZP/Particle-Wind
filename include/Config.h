@@ -12,10 +12,10 @@ public:
     Config() { LoadConfig(); }
 
     void LoadConfig() {
-        std::unique_lock lock(mutex_);
         LoadIni();
         LoadJsons();
 
+        std::shared_lock lock(mutex_);
         logger::info("Loaded {} wind configs", windConfig_.size());
         logger::info("Default strength: {}", defaultStrength_);
     }
@@ -28,13 +28,17 @@ public:
 
         const RE::NiAVObject* current = ps;
 
+        std::shared_lock lock(mutex_);
         while (current) {
-            std::string name = current->name.c_str() ? current->name.c_str() : "[unnamed]";
+            std::string name = "[unnamed]";
+            if (current->name.c_str()) {
+                name = current->name.c_str();
+            }
 
-            std::shared_lock lock(mutex_);
 
             auto it = windConfig_.find(name);
             if (it != windConfig_.end()) {
+                std::unique_lock logLock(logMutex_);
                 if (_loggedConfigHits.insert(name).second) {
                     logger::info("Using CONFIG strength {} for '{}'", it->second, name);
                 }
@@ -53,22 +57,33 @@ public:
                 path = name + ">" + path;
             }
 
-            std::shared_lock lock(mutex_);
-
             auto itH = windConfig_.find(path);
             if (itH != windConfig_.end()) {
+                std::unique_lock logLock(logMutex_);
                 if (_loggedConfigHits.insert(path).second) {
-                    logger::info("Using CONFIG strength {} for hierarchy '{}'", itH->second, path);
+                    logger::info("Using CONFIG strength: {} for hierarchy:", itH->second);
+                    logger::info("{}", path);
                 }
                 return itH->second;
             }
         }
 
+        for (const auto& [pattern, strength] : wildcardConfig_) {
+            if (path.contains(pattern)) {
+                std::unique_lock logLock(logMutex_);
+                if (_loggedConfigHits.insert(pattern).second) {
+                    logger::info("Using WILDCARD strength: {} for hierarchy:", strength);
+                    logger::info("{}", path);
+                }
+                return strength;
+            }
+        }
+
+        std::unique_lock logLock(logMutex_);
         if (_loggedHierarchies.insert(path).second) {
             logger::info("Using default strength: {} for particle hierarchy:", defaultStrength_);
             logger::info("{}", path);
         }
-
         return defaultStrength_;
     }
 
@@ -85,6 +100,13 @@ public:
                 auto pos = line.find('=');
                 if (pos != std::string::npos) {
                     defaultStrength_ = std::stof(line.substr(pos + 1));
+                }
+            }
+            if (line.contains("bWindDirectionFix")) {
+                auto pos = line.find('=');
+                if (pos != std::string::npos) {
+                    std::string value = line.substr(pos + 1);
+                    windDirectionFix_ = (value == "true" || value == "True" || value == "1");
                 }
             }
         }
@@ -112,9 +134,16 @@ public:
                 nlohmann::json j;
                 file >> j;
 
+                std::unique_lock lock(mutex_);
                 for (auto& [key, value] : j.items()) {
                     float strength = value.get<float>();
-                    windConfig_[std::string(key.c_str())] = strength;
+                    std::string k = key;
+                    if (k.size() >= 2 && k.front() == '*' && k.back() == '*') {
+                        k = k.substr(1, k.size() - 2);  // strip '*' from both ends
+                        wildcardConfig_[k] = strength;
+                    } else {
+                        windConfig_[k] = strength;
+                    }
                 }
 
                 logger::info("Loaded {}", entry.path().string());
@@ -126,9 +155,13 @@ public:
 
     mutable std::shared_mutex mutex_;
     std::unordered_map<std::string, float> windConfig_;
+    std::unordered_map<std::string, float> wildcardConfig_;
 
+    
+    mutable std::shared_mutex logMutex_;
     std::unordered_set<std::string> _loggedHierarchies;
     std::unordered_set<std::string> _loggedConfigHits;
 
+    bool windDirectionFix_{true};
     float defaultStrength_{5.0f};
 };
