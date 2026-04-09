@@ -20,6 +20,11 @@ public:
         logger::info("Default strength: {}", defaultStrength_);
     }
 
+    std::string ToLower(std::string str) {
+        std::transform(str.begin(), str.end(), str.begin(), [](unsigned char c) { return std::tolower(c); });
+        return str;
+    }
+
     float GetStrength(const RE::NiParticleSystem* ps) {
         if (!ps) {
             return 0.0f;
@@ -35,16 +40,24 @@ public:
                 name = current->name.c_str();
             }
 
-
-            auto it = windConfig_.find(name);
+            hierarchy.emplace_back(name);
+            auto it = windConfig_.find(ToLower(name));
             if (it != windConfig_.end()) {
+                std::string path;
+                for (auto& hiname : hierarchy) {
+                    if (path.empty()) {
+                        path = hiname;
+                    } else {
+                        path = hiname + ">" + path;
+                    }
+                }
                 std::unique_lock logLock(logMutex_);
-                if (_loggedConfigHits.insert(name).second) {
-                    logger::info("Using CONFIG strength {} for '{}'", it->second, name);
+                if (_loggedConfigHits.insert(path).second) {
+                    logger::info("Using CONFIG: {} strength {} for:",it->first, it->second);
+                    logger::info("{}", path);
                 }
                 return it->second;
             }
-            hierarchy.emplace_back(name);
             current = current->parent;
         }
 
@@ -57,11 +70,11 @@ public:
                 path = name + ">" + path;
             }
 
-            auto itH = windConfig_.find(path);
+            auto itH = windConfig_.find(ToLower(path));
             if (itH != windConfig_.end()) {
                 std::unique_lock logLock(logMutex_);
                 if (_loggedConfigHits.insert(path).second) {
-                    logger::info("Using CONFIG strength: {} for hierarchy:", itH->second);
+                    logger::info("Using CONFIG: {} strength: {} for:", itH->first, itH->second);
                     logger::info("{}", path);
                 }
                 return itH->second;
@@ -69,10 +82,11 @@ public:
         }
 
         for (const auto& [pattern, strength] : wildcardConfig_) {
-            if (path.contains(pattern)) {
+            std::string lowerPath = ToLower(path);
+            if (lowerPath.contains(pattern)) {
                 std::unique_lock logLock(logMutex_);
                 if (_loggedConfigHits.insert(pattern).second) {
-                    logger::info("Using WILDCARD strength: {} for hierarchy:", strength);
+                    logger::info("Using WILDCARD: {} strength: {} for:", pattern, strength);
                     logger::info("{}", path);
                 }
                 return strength;
@@ -137,7 +151,7 @@ public:
                 std::unique_lock lock(mutex_);
                 for (auto& [key, value] : j.items()) {
                     float strength = value.get<float>();
-                    std::string k = key;
+                    std::string k = ToLower(key);
                     if (k.size() >= 2 && k.front() == '*' && k.back() == '*') {
                         k = k.substr(1, k.size() - 2);  // strip '*' from both ends
                         wildcardConfig_[k] = strength;
