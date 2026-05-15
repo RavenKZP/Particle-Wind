@@ -116,13 +116,6 @@ public:
                     defaultStrength_ = std::stof(line.substr(pos + 1));
                 }
             }
-            if (line.contains("bWindDirectionFix")) {
-                auto pos = line.find('=');
-                if (pos != std::string::npos) {
-                    std::string value = line.substr(pos + 1);
-                    windDirectionFix_ = (value == "true" || value == "True" || value == "1");
-                }
-            }
         }
     }
 
@@ -176,6 +169,5 @@ public:
     std::unordered_set<std::string> _loggedHierarchies;
     std::unordered_set<std::string> _loggedConfigHits;
 
-    bool windDirectionFix_{true};
     float defaultStrength_{5.0f};
 };

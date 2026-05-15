@@ -2,6 +2,8 @@
 
 #include "Config.h"
 
+#include "detour_stl.h"
+
 #define M_PI 3.14159265358979323846f
 
 namespace Hooks {
@@ -54,12 +56,8 @@ namespace Hooks {
 
         LinkObjectHook::original = vtblNiPS.write_vfunc(0x19, LinkObjectHook::Hook);
 
-        if (Config::GetSingleton()->windDirectionFix_) {
-            auto& trampoline = SKSE::GetTrampoline();
-            SKSE::AllocTrampoline(14);
-            TESUpdateBsWindModifierWindVectorHook::original =
-                trampoline.write_call<5>(REL::RelocationID(13151, 13291).address() + REL::Relocate(0x8E, 0x8A),
-                                         TESUpdateBsWindModifierWindVectorHook::UpdateBsWindModifierWindVector);
-        }
+        TESUpdateBsWindModifierWindVectorHook::original =
+            stl::write_prologue_hook(RELOCATION_ID(74376, 76101).address(),
+                                     TESUpdateBsWindModifierWindVectorHook::UpdateBsWindModifierWindVector);
     }
 }
