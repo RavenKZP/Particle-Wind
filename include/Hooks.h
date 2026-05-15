@@ -57,7 +57,7 @@ namespace Hooks {
         LinkObjectHook::original = vtblNiPS.write_vfunc(0x19, LinkObjectHook::Hook);
 
         TESUpdateBsWindModifierWindVectorHook::original =
-            stl::write_prologue_hook(RELOCATION_ID(74376, 76101).address(),
+            stl::write_prologue_hook(RELOCATION_ID(74378, 76101).address(),
                                      TESUpdateBsWindModifierWindVectorHook::UpdateBsWindModifierWindVector);
     }
 }
